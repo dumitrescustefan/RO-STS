@@ -80,11 +80,11 @@ def write_excel(start, end, sentence2id, id2sentence, mapping):
         if index % 2 == 0:
             worksheet.set_row(row, None, cell_format=alt_row_format)
             worksheet.write(row, 2, sentence2id[index], en_alt_cell_format)
-            worksheet.write(row, 3, 'sas', alt_cell_format)
+            worksheet.write(row, 3, '', alt_cell_format)
         else:
             worksheet.set_row(row, None, cell_format=row_format)
             worksheet.write(row, 2, sentence2id[index], en_cell_format)
-            worksheet.write(row, 3, 'dds', cell_format)
+            worksheet.write(row, 3, '', cell_format)
 
         row += 1
 
