@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from pytorch_lightning.callbacks import EarlyStopping
+from scipy.stats.stats import pearsonr
+from scipy.stats.spearmanr import spearmanr
 
 from pytorch_lightning.loggers import WandbLogger
 wandb_logger = WandbLogger()
@@ -45,8 +47,19 @@ class STSBaselineModel (pl.LightningModule):
         s1, s2, y = batch
         y_hat = self(s1, s2)
         loss = F.mse_loss(y_hat.view(-1), y.view(-1))
+        pearson_score = pearsonr(y, y_hat)
+        spearman_score = spearmanr(y, y_hat)
         result = pl.EvalResult(checkpoint_on=loss)
-        result.log('val_loss', loss)
+        result.log("val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss)
+        return result
+
+    def validation_end(self, outputs):
+        loss = torch.stack([x["val_loss"] for x in outputs]).mean()#.cuda()
+        return {"val_loss": loss}
+
+    def test_step(self, batch, batch_idx):
+        result = self.validation_step(batch, batch_idx)
+        results.rename_keys({"val_pearson_score": "test_pearson_score", "val_spearman_score": "test_spearman_score", "val_loss": "test_loss"})
         return result
 
     def configure_optimizers(self):
@@ -141,7 +154,7 @@ early_stop = EarlyStopping(
 )
 
 trainer = pl.Trainer(
-    gpus=1,
+    gpus=0,
     #early_stop_callback=early_stop,
     #limit_train_batches=0.1,
     #limit_val_batches=0.1
