@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from pytorch_lightning.callbacks import EarlyStopping
 from scipy.stats.stats import pearsonr
-from scipy.stats.spearmanr import spearmanr
+from scipy.stats import spearmanr
 
 from pytorch_lightning.loggers import WandbLogger
 wandb_logger = WandbLogger()
@@ -50,7 +50,7 @@ class STSBaselineModel (pl.LightningModule):
         pearson_score = pearsonr(y, y_hat)
         spearman_score = spearmanr(y, y_hat)
         result = pl.EvalResult(checkpoint_on=loss)
-        result.log("val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss)
+        result.log({"val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss})
         return result
 
     def validation_end(self, outputs):
