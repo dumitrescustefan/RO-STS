@@ -50,17 +50,25 @@ class STSBaselineModel (pl.LightningModule):
         pearson_score = pearsonr(y, y_hat)
         spearman_score = spearmanr(y, y_hat)
         result = pl.EvalResult(checkpoint_on=loss)
-        result.log({"val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss})
+        result.log({"val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss, prog_bar=True})
         return result
 
     def validation_end(self, outputs):
-        loss = torch.stack([x["val_loss"] for x in outputs]).mean()#.cuda()
-        return {"val_loss": loss}
+        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()#.cuda()
+        avg_pearson_score = torch.stack([x["val_pearson_score"] for x in outputs]).mean()
+        avg_spearman_score = torch.stack([x["val_spearman_score"] for x in outputs]).mean()
+        return {"avg_val_loss": avg_loss, "avg_val_pearson_score": avg_pearson_score, "avg_val_spearman_score": avg_spearman_score}
 
     def test_step(self, batch, batch_idx):
         result = self.validation_step(batch, batch_idx)
         results.rename_keys({"val_pearson_score": "test_pearson_score", "val_spearman_score": "test_spearman_score", "val_loss": "test_loss"})
         return result
+
+    def test_end(self, outputs):
+        avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
+        avg_pearson_score = torch.stack([x["test_pearson_score"] for x in outputs]).mean()
+        avg_spearman_score = torch.stack([x["test_spearman_score"] for x in outputs]).mean()
+        return {"avg_test_loss": avg_loss, "avg_test_pearson_score": avg_pearson_score, "avg_test_pearson_score": avg_pearson_score}
 
     def configure_optimizers(self):
         return torch.optim.Adam([p for p in self.parameters() if p.requires_grad], lr=2e-05, eps=1e-08)
@@ -130,7 +138,7 @@ def my_collate(batch):
     return s1, s2, sim
 
 
-batch_size = 1
+batch_size = 10
 
 #train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/train.tsv", block_size=512)
 #val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/dev.tsv", block_size=512)
