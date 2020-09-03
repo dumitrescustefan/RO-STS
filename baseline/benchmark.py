@@ -47,8 +47,10 @@ class STSBaselineModel (pl.LightningModule):
         s1, s2, y = batch
         y_hat = self(s1, s2)
         loss = F.mse_loss(y_hat.view(-1), y.view(-1))
-        pearson_score = pearsonr(y, y_hat)
-        spearman_score = spearmanr(y, y_hat)
+        y_num = y.detach().cpu().numpy()
+        y_hat_num = y_hat.detach().cpu().numpy()
+        pearson_score = pearsonr(y_num, y_hat_num)
+        spearman_score = spearmanr(y_num, y_hat_num)
         result = pl.EvalResult(checkpoint_on=loss)
         result.log({"val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss, prog_bar=True})
         return result
