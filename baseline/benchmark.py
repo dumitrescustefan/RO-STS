@@ -6,11 +6,16 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments
 from pytorch_lightning.callbacks import EarlyStopping
-from scipy.stats.stats import pearsonr
-from scipy.stats import spearmanr
+from utils import Spearman, Pearson
 
 from pytorch_lightning.loggers import WandbLogger
 wandb_logger = WandbLogger()
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+checkpoint_callback = ModelCheckpoint(
+    monitor='val_loss',
+    mode='min',
+)
 
 class STSBaselineModel (pl.LightningModule):
     def __init__(self, model_name="bert-base-cased"): #model_name="dumitrescustefan/bert-base-romanian-cased-v1"):
@@ -21,6 +26,8 @@ class STSBaselineModel (pl.LightningModule):
         self.dropout = nn.Dropout(0.2)
         self.mixer = nn.Linear(self.encoder.config.hidden_size * 2, 1)
         self.sigmoid = nn.Sigmoid()
+        self.pearsonr = Pearson()
+        self.spearmanr = Spearman()
 
     def forward(self, s1, s2):
         output1 = self.encoder(s1)
@@ -47,30 +54,37 @@ class STSBaselineModel (pl.LightningModule):
         s1, s2, y = batch
         y_hat = self(s1, s2)
         loss = F.mse_loss(y_hat.view(-1), y.view(-1))
-        y_num = y.detach().cpu().numpy()
-        y_hat_num = y_hat.detach().cpu().numpy()
-        pearson_score = pearsonr(y_num, y_hat_num)
-        spearman_score = spearmanr(y_num, y_hat_num)
+        y_num = y.detach().cpu().numpy() # [batch_size]
+        y_hat_num = y_hat.detach().cpu().numpy() # [batch_size]
+        self.pearsonr.update(y_num, y_hat_num)
+        self.spearmanr.update(y_num, y_hat_num)
         result = pl.EvalResult(checkpoint_on=loss)
-        result.log({"val_pearson_score": pearson_score, "val_spearman_score": spearman_score, "val_loss": loss, prog_bar=True})
+        result.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         return result
 
     def validation_end(self, outputs):
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()#.cuda()
-        avg_pearson_score = torch.stack([x["val_pearson_score"] for x in outputs]).mean()
-        avg_spearman_score = torch.stack([x["val_spearman_score"] for x in outputs]).mean()
-        return {"avg_val_loss": avg_loss, "avg_val_pearson_score": avg_pearson_score, "avg_val_spearman_score": avg_spearman_score}
+        avg_loss = torch.stack([x["val_loss"] for x in [outputs]]).mean()
+        pearson_score = self.pearsonr.get_score()
+        spearman_score = self.spearmanr.get_score()
+        result = pl.EvalResult(checkpoint_on=avg_loss)
+        result.log_dict({"val_avg_loss": avg_loss, "val_pearson_score": pearson_score, \
+                   "val_spearman_score": spearman_score})
+        return result
 
     def test_step(self, batch, batch_idx):
         result = self.validation_step(batch, batch_idx)
-        results.rename_keys({"val_pearson_score": "test_pearson_score", "val_spearman_score": "test_spearman_score", "val_loss": "test_loss"})
+        results.rename_keys({"val_loss": "test_loss", "val_pearson_score": "test_pearson_score", \
+                             "val_spearman_score": "test_spearman_score"})
         return result
 
     def test_end(self, outputs):
-        avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
-        avg_pearson_score = torch.stack([x["test_pearson_score"] for x in outputs]).mean()
-        avg_spearman_score = torch.stack([x["test_spearman_score"] for x in outputs]).mean()
-        return {"avg_test_loss": avg_loss, "avg_test_pearson_score": avg_pearson_score, "avg_test_pearson_score": avg_pearson_score}
+        avg_loss = torch.stack([x["test_loss"] for x in [outputs]]).mean()
+        pearson_score = self.pearsonr.get_score()
+        spearnman_score = self.spearmanr.get_score()
+        result = pl.EvalResult(checkpoint_on=avg_loss)
+        result.log_dict({"val_avg_loss": avg_loss, "val_pearson_score": pearson_score, \
+                   "val_spearman_score": spearman_score})
+        return result
 
     def configure_optimizers(self):
         return torch.optim.Adam([p for p in self.parameters() if p.requires_grad], lr=2e-05, eps=1e-08)
@@ -156,7 +170,7 @@ test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4,
 
 
 early_stop = EarlyStopping(
-    monitor='val_loss',
+    monitor='val_pearson_score',
     patience=3,
     strict=False,
     verbose=True,
@@ -165,14 +179,17 @@ early_stop = EarlyStopping(
 
 trainer = pl.Trainer(
     gpus=0,
-    #early_stop_callback=early_stop,
+    checkpoint_callback=checkpoint_callback,
+    early_stop_callback=early_stop,
     #limit_train_batches=0.1,
     #limit_val_batches=0.1
     accumulate_grad_batches=8,
     weights_save_path='model',
     gradient_clip_val=1.0,
-    logger=wandb_logger
+    logger=wandb_logger,
+    progress_bar_refresh_rate=10,
 )
 
 trainer.fit(model, train_dataloader, val_dataloader)
 
+trainer.test(model, test_dataloader)
