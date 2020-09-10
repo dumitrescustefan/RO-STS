@@ -62,13 +62,13 @@ class STSBaselineModel (pl.LightningModule):
         result.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
         return result
 
-    def validation_end(self, outputs):
+    def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["val_loss"] for x in [outputs]]).mean()
-        pearson_score = self.pearsonr.get_score()
-        spearman_score = self.spearmanr.get_score()
-        result = pl.EvalResult(checkpoint_on=avg_loss)
+        pearson_score = torch.tensor(self.pearsonr.get_score())
+        spearman_score = torch.tensor(self.spearmanr.get_score())
+        result = pl.EvalResult(checkpoint_on=avg_loss, early_stop_on=pearson_score)
         result.log_dict({"val_avg_loss": avg_loss, "val_pearson_score": pearson_score, \
-                   "val_spearman_score": spearman_score})
+                         "val_spearman_score": spearman_score})
         return result
 
     def test_step(self, batch, batch_idx):
@@ -77,13 +77,13 @@ class STSBaselineModel (pl.LightningModule):
                              "val_spearman_score": "test_spearman_score"})
         return result
 
-    def test_end(self, outputs):
+    def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x["test_loss"] for x in [outputs]]).mean()
         pearson_score = self.pearsonr.get_score()
         spearnman_score = self.spearmanr.get_score()
-        result = pl.EvalResult(checkpoint_on=avg_loss)
-        result.log_dict({"val_avg_loss": avg_loss, "val_pearson_score": pearson_score, \
-                   "val_spearman_score": spearman_score})
+        result = pl.EvalResult(checkpoint_on=avg_loss, early_stop_on=pearson_score)
+        result.log_dict({"test_avg_loss": avg_loss, "test_pearson_score": pearson_score, \
+                   "test_spearman_score": spearman_score})
         return result
 
     def configure_optimizers(self):
@@ -169,18 +169,18 @@ val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=4, s
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
 
 
-early_stop = EarlyStopping(
-    monitor='val_pearson_score',
-    patience=3,
-    strict=False,
-    verbose=True,
-    mode='min'
-)
+#early_stop = EarlyStopping(
+#    monitor='val_pearson_score',
+#    patience=3,
+#    strict=False,
+#    verbose=True,
+#    mode='min'
+#)
 
 trainer = pl.Trainer(
     gpus=0,
     checkpoint_callback=checkpoint_callback,
-    early_stop_callback=early_stop,
+    #early_stop_callback=early_stop,
     #limit_train_batches=0.1,
     #limit_val_batches=0.1
     accumulate_grad_batches=8,

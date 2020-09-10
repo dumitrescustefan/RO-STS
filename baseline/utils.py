@@ -19,7 +19,7 @@ class Pearson():
         self.outputs = []
         self.targets = []
 
-        return cost
+        return cost[0]
 
 
 class Spearman():
@@ -39,4 +39,4 @@ class Spearman():
         self.outputs = []
         self.targets = []
 
-        return cost
+        return cost[0]
