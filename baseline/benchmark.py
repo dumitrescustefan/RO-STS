@@ -92,14 +92,17 @@ class STSBaselineModel (pl.LightningModule):
         # log results 
         self.valid_y_hat.extend(y_hat.detach().cpu().view(-1).numpy())
         self.valid_y.extend(y.detach().cpu().view(-1).numpy())
-        self.valid_loss.append(loss.detach().cpu().numpy())
+        self.valid_loss.append(loss.detach().cpu().numpy()) # aici cu extend, si toate fara numpy
         
         return pl.EvalResult(loss)
 
     def validation_epoch_end(self, outputs):
         pearson_score = pearsonr(self.valid_y, self.valid_y_hat)[0]
+        """
+        as calcula pearson normal(cu numpy), il convertesc in tensor, il dau ca parametru tensor in pl.evalResult sa fac early stop pe el.
+        """
         
-        result = pl.EvalResult()
+        result = pl.EvalResult() # primeste ca param un tensor, sa vezi daca mai face mean sau nu DUPA PEARSON
         result.log('valid/lss', sum(self.valid_loss)/len(self.valid_loss), prog_bar=True, on_step=False, on_epoch=True)
         result.log("valid/pearson", pearson_score , prog_bar=True, on_step=False, on_epoch=True)
         result.log("valid/spearman", spearmanr(self.valid_y, self.valid_y_hat)[0] , prog_bar=False, on_step=False, on_epoch=True)
@@ -234,3 +237,7 @@ trainer = pl.Trainer(
 trainer.fit(model, train_dataloader, val_dataloader)
 
 #trainer.test(model, test_dataloader)
+
+#1. facut test ca valid (cu log pe wandb)
+#2. facut early stopping sa mearga cumva pe dev
+#3. de ce spanac obtinem doar 0.72 spearman cu t5
