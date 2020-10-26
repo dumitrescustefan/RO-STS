@@ -1,4 +1,5 @@
 from datasets import list_datasets, load_dataset, list_metrics, load_metric
+import os
 
 
 def save_dataset(outpath_en, outpath_ro, subset):
@@ -9,6 +10,9 @@ def save_dataset(outpath_en, outpath_ro, subset):
 
 
 wmt16_roen = load_dataset('wmt16', "ro-en")
+
+if not os.path.exists("data"):
+    os.makedirs("data")
 
 save_dataset("data/train_en.txt", "data/train_ro.txt", "train")
 save_dataset("data/valid_en.txt", "data/valid_ro.txt", "validation")
