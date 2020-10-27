@@ -1,0 +1,55 @@
+save_data: data/
+src_vocab: data/vocab-en.txt
+tgt_vocab: data/vocab-ro.txt
+# Prevent overwriting existing files in the folder
+overwrite: False
+
+# Corpus opts:
+data:
+    corpus_1:
+        path_src: data/train-en.txt
+        path_tgt: data/train-ro.txt
+    valid:
+        path_src: data/valid-en.txt
+        path_tgt: data/valid-ro.txt
+
+save_model: models/model_wmt_en_ro
+save_checkpoint_steps: 10000
+valid_steps: 10000
+train_steps: 1000000
+
+# Batching
+gpu_ranks: [0]
+batch_type: "tokens"
+batch_size: 32
+valid_batch_size: 8
+accum_count: [4]
+early_stopping: 3
+early_stopping_criteria: "accuracy"
+
+# Optimization
+model_dtype: "fp32"
+optim: "adam"
+learning_rate: 2
+warmup_steps: 8000
+decay_method: "noam"
+adam_beta2: 0.998
+max_grad_norm: 0
+label_smoothing: 0.1
+param_init: 0
+param_init_glorot: true
+normalization: "tokens"
+
+# Model
+encoder_type: transformer
+decoder_type: transformer
+position_encoding: true
+enc_layers: 6
+dec_layers: 6
+heads: 8
+rnn_size: 512
+word_vec_size: 512
+transformer_ff: 2048
+dropout_steps: [0]
+dropout: [0.1]
+attention_dropout: [0.1]
