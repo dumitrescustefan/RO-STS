@@ -20,6 +20,7 @@ checkpoint_callback = ModelCheckpoint(
 )
 
 class STSBaselineModel (pl.LightningModule):
+
     def __init__(self, model_name="bert-base-uncased", lr=2e-05): #model_name="dumitrescustefan/bert-base-romanian-cased-v1")
         super().__init__()
         print("Loading AutoModel [{}]...".format(model_name))
@@ -29,10 +30,7 @@ class STSBaselineModel (pl.LightningModule):
         self.model = AutoModel.from_pretrained(model_name, config=self.config)
         self.dropout = nn.Dropout(0.2)
         self.mixer = nn.Linear(self.model.config.hidden_size, 1)
-        self.sigmoid = nn.Sigmoid()
-       
-        self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-
+        self.loss_fct = MSELoss()
        
         self.lr = lr
         
@@ -59,8 +57,7 @@ class STSBaselineModel (pl.LightningModule):
             pooled_sentence = output.last_hidden_state # [batch_size, seq_len, hidden_size]
             pooled_sentence = torch.mean(pooled_sentence, dim=1)
         logits = self.mixer(pooled_sentence) # [bs]
-        loss_fct = MSELoss()
-        loss = loss_fct(logits.squeeze(), sim)
+        loss = self.loss_fct(logits.squeeze(), sim)
         return loss, logits
 
 
@@ -94,8 +91,8 @@ class STSBaselineModel (pl.LightningModule):
         self.train_y_hat = []
         self.train_y = []
         self.train_loss = []
-            
 
+        
     def validation_step(self, batch, batch_idx):
         s, attn, sim = batch
         outputs = self(s, attn, sim)
@@ -130,6 +127,9 @@ class STSBaselineModel (pl.LightningModule):
         self.valid_y_hat = []
         self.valid_y = []
         self.valid_loss = []
+
+        return result 
+
 
     def test_step(self, batch, batch_idx):
         s, attn, sim = batch
@@ -204,7 +204,9 @@ def my_collate(batch):
     # return is a [bs, max_seq_len_s1],  [bs, max_seq_len_s2], [bs]
     # the first two return values are dynamic batching for sentences 1 and 2, and [bs] is the sims for each of them
  
+
     max_seq_len_s1, max_seq_len_s2, max_seq_len, batch_size = 0, 0, 0, len(batch)
+
     for example in batch:
         max_seq_len_s1 = max(max_seq_len_s1, len(example["sentence1"]))
         max_seq_len_s2 = max(max_seq_len_s2, len(example["sentence2"]))
@@ -225,7 +227,6 @@ def my_collate(batch):
 
     return s, attn, sim
 
-
 batch_size = 16
 
 #train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/train.tsv", block_size=512)
@@ -237,11 +238,13 @@ val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="./ro-sts/sts-dev.c
 test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="./ro-sts/sts-test.csv", block_size=512)
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4, shuffle=True, collate_fn=my_collate, pin_memory=True)
-val_dataloader = DataLoader(val_dataset, batch_size=64, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
-test_dataloader = DataLoader(test_dataset, batch_size=64, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+
 
 print("Train dataset has {} instances, meaning {:.0f} steps.".format(len(train_dataset), len(train_dataset)/batch_size))
 print("Valid dataset has {} instances, meaning {:.0f} steps.".format(len(val_dataset), len(val_dataset)/batch_size))
+
 
 early_stop = EarlyStopping(
     monitor='valid_pearson',
@@ -250,6 +253,7 @@ early_stop = EarlyStopping(
     verbose=False,
     mode='min'
 )
+
 
 trainer = pl.Trainer(
     gpus=1,
@@ -264,3 +268,8 @@ trainer = pl.Trainer(
     auto_lr_find=False,
     #progress_bar_refresh_rate=10,
 )
+
+trainer.fit(model, train_dataloader, val_dataloader)
+
+#trainer.test(model, test_dataloader)
+
