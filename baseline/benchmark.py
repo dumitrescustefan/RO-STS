@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
+from torch.nn import MSELoss
 import pytorch_lightning as pl
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers import AutoTokenizer, AutoModel, AutoConfig, Trainer, TrainingArguments
 from pytorch_lightning.callbacks import EarlyStopping
 from scipy.stats.stats import pearsonr
 from scipy.stats import spearmanr
@@ -14,18 +15,20 @@ wandb_logger = WandbLogger()
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 checkpoint_callback = ModelCheckpoint(
-    monitor='val_loss',
+    monitor='valid_loss',
     mode='min',
 )
 
 class STSBaselineModel (pl.LightningModule):
-    def __init__(self, model_name="bert-base-uncased", lr=2e-05): #model_name="dumitrescustefan/bert-base-romanian-cased-v1"):
+    def __init__(self, model_name="bert-base-uncased", lr=2e-05): #model_name="dumitrescustefan/bert-base-romanian-cased-v1")
         super().__init__()
         print("Loading AutoModel [{}]...".format(model_name))
+        self.model_name = model_name
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.encoder = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.config = AutoConfig.from_pretrained(model_name, num_labels=1, output_hidden_states=True)
+        self.model = AutoModel.from_pretrained(model_name, config=self.config)
         self.dropout = nn.Dropout(0.2)
-        self.mixer = nn.Linear(self.encoder.config.hidden_size * 2, 1)
+        self.mixer = nn.Linear(self.model.config.hidden_size, 1)
         self.sigmoid = nn.Sigmoid()
        
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
@@ -46,86 +49,87 @@ class STSBaselineModel (pl.LightningModule):
         self.cnt = 0
         
     def forward(self, s, attn, sim):
-        #output1 = self.encoder(s1, return_dict=True)
-        #output2 = self.encoder(s2, return_dict=True)
-        # we assume that AutoModel outputs a tuple with  element [1] being the
+        # we assume that AutoModel for outputs a tuple with  element [1] being the
         # pooler_output (torch.FloatTensor: of shape (batch_size, hidden_size)):
+        if "bert" in self.model_name:
+            output = self.model(input_ids=s, attention_mask=attn)
+            pooled_sentence = self.dropout(output[1]) # [bs, hidden_size]
+        elif "t5" in self.model_name:
+            output = self.model.encoder(input_ids=s, attention_mask=attn, return_dict=True)
+            pooled_sentence = output.last_hidden_state # [batch_size, seq_len, hidden_size]
+            pooled_sentence = torch.mean(pooled_sentence, dim=1)
+        logits = self.mixer(pooled_sentence) # [bs]
+        loss_fct = MSELoss()
+        loss = loss_fct(logits.squeeze(), sim)
+        return loss, logits
 
-        #pooled_sentence1 = self.dropout(output1[1]) # [bs, hidden_size]
-        #pooled_sentence2 = self.dropout(output2[1]) # [bs, hidden_size]
-        #pooled_sentence1 = torch.mean(output1.last_hidden_state, dim=1)
-        #pooled_sentence2 = torch.mean(output2.last_hidden_state, dim=1)
-        #print(pooled_sentence1.size())
-
-        #mixer_input = torch.cat([pooled_sentence1, pooled_sentence2] , dim=1) # [bs, hidden * 2]
-
-        #return self.sigmoid(self.mixer(mixer_input)).squeeze() # [bs]
-        #return self.cos(pooled_sentence1, pooled_sentence2)
-        return self.encoder(input_ids=s, attention_mask=attn, labels=sim)
 
     def training_step(self, batch, batch_idx):
-        #s1, s2, y = batch
-        #y_hat = self(s1, s2)
-        
-        #loss = F.mse_loss(y_hat.view(-1), y.view(-1))        
         s, attn, sim = batch
         outputs = self(s, attn, sim)
         
         loss, logits = outputs[:2]
         preds = logits.squeeze()
-
-        # log results 
+        
         self.train_y_hat.extend(preds.detach().cpu().view(-1).numpy())
         self.train_y.extend(sim.detach().cpu().view(-1).numpy())
         self.train_loss.append(loss.detach().cpu().numpy())
         
-        return pl.TrainResult(loss)
+        # wandb logging
+        self.logger.experiment.log({'train/loss': loss})
+
+        return {"loss": loss}
         
+  
     def training_epoch_end(self, outputs):
-        result = pl.EvalResult()   
-        result.log('train/lss', sum(self.train_loss)/len(self.train_loss), prog_bar=False, on_step=False, on_epoch=True)
-        result.log("train/pearson", pearsonr(self.train_y, self.train_y_hat)[0] , prog_bar=True, on_step=False, on_epoch=True)
-        result.log("train/spearman", spearmanr(self.train_y, self.train_y_hat)[0] , prog_bar=False, on_step=False, on_epoch=True)
+        pearson_score = pearsonr(self.train_y, self.train_y_hat)[0]
+        spearman_score = spearmanr(self.train_y, self.train_y_hat)[0]
+        mean_train_loss = sum(self.train_loss)/len(self.train_loss)
+
+        # wandb logging
+        self.logger.experiment.log({"train/avg_loss": mean_train_loss})
+        self.logger.experiment.log({"train/pearson": pearson_score})
+        self.logger.experiment.log({"train/spearman": spearman_score})
+
         self.train_y_hat = []
         self.train_y = []
         self.train_loss = []
             
-        return result 
-    
+
     def validation_step(self, batch, batch_idx):
-        #s1, s2, y = batch
-        #y_hat = self(s1, s2)
-        
-        #loss = F.mse_loss(y_hat.view(-1), y.view(-1))
         s, attn, sim = batch
         outputs = self(s, attn, sim)
         
         loss, logits = outputs[:2]
         preds = logits.squeeze()
-
+        
         # log results 
         self.valid_y_hat.extend(preds.detach().cpu().view(-1).numpy())
         self.valid_y.extend(sim.detach().cpu().view(-1).numpy())
-        self.valid_loss.append(loss.detach().cpu().numpy()) # aici cu extend, si toate fara numpy
-        
-        return pl.EvalResult(loss)
+        self.valid_loss.append(loss.detach().cpu().numpy())
+        self.logger.experiment.log({"valid/loss": loss})
+
+        return {"valid_loss": loss}
+
 
     def validation_epoch_end(self, outputs):
         pearson_score = pearsonr(self.valid_y, self.valid_y_hat)[0]
-        """
-        as calcula pearson normal(cu numpy), il convertesc in tensor, il dau ca parametru tensor in pl.evalResult sa fac early stop pe el.
-        """
+        spearman_score = spearmanr(self.valid_y, self.valid_y_hat)[0]
+        mean_val_loss = sum(self.valid_loss)/len(self.valid_loss)
         
-        result = pl.EvalResult() # primeste ca param un tensor, sa vezi daca mai face mean sau nu DUPA PEARSON
-        result.log('valid/lss', sum(self.valid_loss)/len(self.valid_loss), prog_bar=True, on_step=False, on_epoch=True)
-        result.log("valid/pearson", pearson_score , prog_bar=True, on_step=False, on_epoch=True)
-        result.log("valid/spearman", spearmanr(self.valid_y, self.valid_y_hat)[0] , prog_bar=False, on_step=False, on_epoch=True)
-        
+        # wandb logging
+        self.logger.experiment.log({"valid/avg_loss": mean_val_loss})
+        self.logger.experiment.log({"valid/pearson": pearson_score})
+        self.logger.experiment.log({"valid/spearman": spearman_score})
+
+        #early stopping logging
+        self.log_dict({"valid_loss": mean_val_loss,
+                       "valid_pearson": pearson_score,
+                       "valid_spearman": spearman_score})
+
         self.valid_y_hat = []
         self.valid_y = []
         self.valid_loss = []
-        
-        return result
 
     def test_step(self, batch, batch_idx):
         s, attn, sim = batch
@@ -134,27 +138,29 @@ class STSBaselineModel (pl.LightningModule):
         loss, logits = outputs[:2]
         preds = logits.squeeze()
         
-        # log results 
         self.test_y_hat.extend(preds.detach().cpu().view(-1).numpy())
         self.test_y.extend(sim.detach().cpu().view(-1).numpy())
         self.test_loss.append(loss.detach().cpu().numpy()) # aici cu extend, si toate fara numpy
 
-        return pl.EvalResult(loss)
+        # wandb logging
+        self.logger.experiment.log({'test/loss': loss})
+        return {"test_loss": loss}
+
 
     def test_epoch_end(self, outputs):
-        pearson_score = pearsonr(self.test_y, self.test_y_h_yat)[0]
+        pearson_score = pearsonr(self.test_y, self.test_y_hat)[0]
         spearman_score = spearmanr(self.test_y, self.test_y_hat)[0]
-        avg_loss = sum(self.test_loss)/len(self.test_loss)
+        mean_test_loss = sum(self.test_loss)/len(self.test_loss)
 
-        result = pl.EvalResult()
-        result.log_dict({"test_avg_loss": avg_loss, "test_pearson_score": pearson_score, \
-                   "test_spearman_score": spearman_score})
-        
+        # wandb logging
+        self.logger.experiment.log({"test/avg_loss": mean_test_loss})
+        self.logger.experiment.log({"test/pearson": pearson_score})
+        self.logger.experiment.log({"test/spearman": spearman_score})
+      
         self.test_y_hat = []
         self.test_y = []
         self.test_loss = []
 
-        return result 
     def configure_optimizers(self):
         return torch.optim.Adam([p for p in self.parameters() if p.requires_grad], lr=self.lr, eps=1e-08)
 
@@ -173,8 +179,6 @@ class MyDataset(Dataset):
         for line in lines:
             if line.strip()=="":
                 break
-            #print(line.split("\t"))
-            #_, sim, sentence1, sentence2 = line.strip().split("\t")
             parts = line.strip().split("\t")
             sim = parts[4]
             sentence1 = parts[5]
@@ -199,6 +203,7 @@ def my_collate(batch):
     # batch is a list of batch_size number of instances; each instance is a dict, as given by MyDataset.__getitem__()
     # return is a [bs, max_seq_len_s1],  [bs, max_seq_len_s2], [bs]
     # the first two return values are dynamic batching for sentences 1 and 2, and [bs] is the sims for each of them
+ 
     max_seq_len_s1, max_seq_len_s2, max_seq_len, batch_size = 0, 0, 0, len(batch)
     for example in batch:
         max_seq_len_s1 = max(max_seq_len_s1, len(example["sentence1"]))
@@ -209,16 +214,15 @@ def my_collate(batch):
     attn = []
     sim = []
     for i, example in enumerate(batch):
-        #print( example["sentence1"]+[0]*(max_seq_len_s1-len(example["sentence1"])) )
         ten =  torch.tensor( example["sentence1"] + example["sentence2"] + [model.tokenizer.pad_token_id] * (max_seq_len - len(example["sentence1"]) - len(example["sentence2"])), dtype=torch.long)
         s.append(ten)
         attn.append((ten>0.0).float())
         sim.append(example["sim"])
+
     s = torch.stack(s, dim=0)
     attn = torch.stack(attn, dim=0)
     sim = torch.tensor(sim, dtype=torch.float)
-    #print()
-    #print(example)
+
     return s, attn, sim
 
 
@@ -228,43 +232,35 @@ batch_size = 16
 #val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/dev.tsv", block_size=512)
 #test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/test.tsv", block_size=512)
 
-train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-train.csv", block_size=512)
-val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-dev.csv", block_size=512)
-test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-test.csv", block_size=512)
+train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="./ro-sts/sts-train.csv", block_size=512)
+val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="./ro-sts/sts-dev.csv", block_size=512)
+test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="./ro-sts/sts-test.csv", block_size=512)
 
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4, shuffle=True, collate_fn=my_collate, pin_memory=True)
-val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
-test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+val_dataloader = DataLoader(val_dataset, batch_size=64, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+test_dataloader = DataLoader(test_dataset, batch_size=64, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
 
 print("Train dataset has {} instances, meaning {:.0f} steps.".format(len(train_dataset), len(train_dataset)/batch_size))
 print("Valid dataset has {} instances, meaning {:.0f} steps.".format(len(val_dataset), len(val_dataset)/batch_size))
 
-#early_stop = EarlyStopping(
-#    monitor='val_pearson_score',
-#    patience=3,
-#    strict=False,
-#    verbose=True,
-#    mode='min'
-#)
+early_stop = EarlyStopping(
+    monitor='valid_pearson',
+    patience=3,
+    strict=False,
+    verbose=False,
+    mode='min'
+)
 
 trainer = pl.Trainer(
     gpus=1,
     checkpoint_callback=checkpoint_callback,
-    #early_stop_callback=early_stop,
+    callbacks=[early_stop],
     #limit_train_batches=20,
     #limit_val_batches=10,
-    accumulate_grad_batches=1,
+    accumulate_grad_batches=8,
     weights_save_path='model',
     gradient_clip_val=1.0,
     logger=wandb_logger,
     auto_lr_find=False,
     #progress_bar_refresh_rate=10,
 )
-
-trainer.fit(model, train_dataloader, val_dataloader)
-
-#trainer.test(model, test_dataloader)
-
-#1. facut test ca valid (cu log pe wandb)
-#2. facut early stopping sa mearga cumva pe dev
-#3. de ce spanac obtinem doar 0.72 spearman cu t5 -> model care face regresie cu MSELoss pe propozitii concatenate 
