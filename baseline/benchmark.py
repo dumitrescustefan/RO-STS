@@ -128,8 +128,6 @@ class STSBaselineModel (pl.LightningModule):
         self.valid_y = []
         self.valid_loss = []
 
-        return result 
-
 
     def test_step(self, batch, batch_idx):
         s, attn, sim = batch
