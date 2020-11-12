@@ -1,0 +1,29 @@
+alpha: 0.0
+batch_size: 8
+batch_type: sents
+beam_size: 8
+beta: -0.0
+block_ngram_repeat: 0
+coverage_penalty: none
+data_type: text
+dump_beam: ''
+gpu: 0
+length_penalty: none
+log_file: ''
+log_file_level: '0'
+max_length: 256
+min_length: 0
+model:
+- models/model_wmt_en_ro_step_60000.pt
+n_best: 1
+output: data/pred-ro.txt.sp
+phrase_table: ''
+random_sampling_temp: 1.0
+random_sampling_topk: 1
+ratio: -0.0
+seed: -1
+shard_size: 10000
+src: data/test-en.txt.sp
+verbose: 'true'
+replace_unk: true
+

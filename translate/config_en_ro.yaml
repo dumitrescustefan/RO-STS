@@ -1,30 +1,47 @@
 save_data: data/
-src_vocab: data/vocab_en.txt
-tgt_vocab: data/vocab_ro.txt
-overwrite: False
 
+# Corpus opts:
 data:
-    train:
-        path_src: data/train_en.txt
-        path_tgt: data/train_ro.txt
+    corpus_1:
+        path_src: data/train-en.txt
+        path_tgt: data/train-ro.txt
+        transforms: [sentencepiece]
     valid:
-        path_src: data/valid_en.txt
-        path_tgt: data/valid_ro.txt
+        path_src: data/valid-en.txt
+        path_tgt: data/valid-ro.txt
+        transforms: [sentencepiece]
 
-save_model: models/model_en_ro_wmt
-save_checkpoint_steps: 10000
-train_steps: 5000000
-valid_steps: 50000
+src_subword_model: data/sentpiece_en_32k.model
+tgt_subword_model: data/sentpiece_ro_32k.model
 
-src_seq_length: 512
-tgt_seq_length: 512
+src_seq_length: 256
+src_seq_length: 256
 
+src_vocab: data/vocab-en.txt
+tgt_vocab: data/vocab-ro.txt
+src_vocab_size: 32000
+tgt_vocab_size: 32000
+
+save_model: models/model_wmt_en_ro
+train_from: models/model_wmt_en_ro_step_70000.pt
+save_checkpoint_steps: 5000
+valid_steps: 5000
+report_every: 100
+seed: 42
+train_steps: 200000
+tensorboard: True
+tensorboard_log_dir: tensorboard
+
+# Batching
+queue_size: 10000
+bucket_size: 32768
 gpu_ranks: [0]
-batch_size: 4
+batch_type: "tokens"
+batch_size: 2048
 valid_batch_size: 8
-log_file: train.log
-accum_count: [8]
-
+max_generator_batches: 2
+accum_count: [4]
+accum_steps: 0
 
 # Optimization
 model_dtype: "fp32"
@@ -42,7 +59,6 @@ normalization: "tokens"
 # Model
 encoder_type: transformer
 decoder_type: transformer
-position_encoding: true
 enc_layers: 6
 dec_layers: 6
 heads: 8
@@ -52,3 +68,4 @@ transformer_ff: 2048
 dropout_steps: [0]
 dropout: [0.1]
 attention_dropout: [0.1]
+position_encoding: true
