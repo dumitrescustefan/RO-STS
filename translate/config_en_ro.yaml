@@ -1,4 +1,8 @@
 save_data: data/
+src_vocab: data/vocab-en.txt
+tgt_vocab: data/vocab-ro.txt
+# Prevent overwriting existing files in the folder
+overwrite: False
 
 # Corpus opts:
 data:
