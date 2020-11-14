@@ -1,6 +1,10 @@
 corpus_dev/Stsbenchmark.tar.gz
 corpus_dev/stsbenchmark
 
+wandb/
+rnn_files/
+lightning_logs/
+model/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
