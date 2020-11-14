@@ -14,6 +14,7 @@ from torch.nn.utils.rnn import pad_packed_sequence
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from tokenizers import Tokenizer
+from utils_rnn import Attention
 
 
 class STSRNNBaselineModel(pl.LightningModule):
@@ -37,7 +38,9 @@ class STSRNNBaselineModel(pl.LightningModule):
             batch_first=True,
             dropout=0.1,
             bidirectional=True)
-        self.mixer = nn.Linear(2 * 2 * self.hidden_size, 1) # 2 from bilstm, 2 from concating sentences
+        self.attention = Attention(encoder_size=2*self.hidden_size, decoder_size=self.hidden_size, type="additive")
+        self.mixer = nn.Linear(2* 2* self.hidden_size, 1) # 2 from bilstm, 2 from concating sentences
+        self.relu = nn.ReLU()
         self.loss = MSELoss()
 
         # data saving
@@ -72,23 +75,36 @@ class STSRNNBaselineModel(pl.LightningModule):
 
         # run sentence 1 through rnn, obtain a [bs, max_seq_len1, hidden_size]
         sentence1_packed = pack_padded_sequence(sentence1_embeddings, sentence1_lengths, batch_first=True, enforce_sorted=False)
-        sentence1_output, sentence1_hidden = self.rnn(sentence1_packed) # hidden is zero at start
-        #sentence1_output, _ = pad_packed_sequence(sentence1_output, batch_first=True) # [bs, max_seq_len1, 2*hidden_size]
+        sentence1_output, (sentence1_hidden, _) = self.rnn(sentence1_packed) # hidden is zero at start
+        sentence1_output, _ = pad_packed_sequence(sentence1_output, batch_first=True) # [bs, max_seq_len1, 2*hidden_size]
+
         #print("sentence1_output {}".format(sentence1_output.size()))
 
         # run sentence 2 through rnn
         sentence2_packed = pack_padded_sequence(sentence2_embeddings, sentence2_lengths, batch_first=True, enforce_sorted=False)
-        sentence2_output, sentence2_hidden = self.rnn(sentence2_packed)  # hidden is zero at start
-        #sentence2_output, _ = pad_packed_sequence(sentence2_output, batch_first=True) # [bs, max_seq_len1, 2*hidden_size]
+        sentence2_output, (sentence2_hidden, _) = self.rnn(sentence2_packed)  # hidden is zero at start
+        sentence2_output, _ = pad_packed_sequence(sentence2_output, batch_first=True) # [bs, max_seq_len1, 2*hidden_size]
 
         # concat last states and send to mixer output layer
-        sentence1_last_state = self._get_last_state(sentence1_output, sentence1_lengths) #entence1_output[:,-1,:] # [bs, 2*hidden_size]
-        sentence2_last_state = self._get_last_state(sentence2_output, sentence2_lengths) #sentence2_output[:,-1,:] # [bs, 2*hidden_size]
+        #sentence1_last_state = self._get_last_state(sentence1_output, sentence1_lengths) #entence1_output[:,-1,:] # [bs, 2*hidden_size]
+        #sentence2_last_state = self._get_last_state(sentence2_output, sentence2_lengths) #sentence2_output[:,-1,:] # [bs, 2*hidden_size]
 
-        concat = torch.cat([sentence1_last_state, sentence2_last_state], dim=1) # [bs, 2*hidden_size]
+        #concat = torch.cat([sentence1_last_state, sentence2_last_state], dim=1) # [bs, 2*hidden_size]
         #print("concat {}".format(concat.size()))
+        #print("s1o: {}".format(sentence1_output.size()))
+        #print("s1h: {}".format(sentence1_hidden.size()))
 
-        output = self.mixer(concat)  # [bs]
+        # transform state_h from (num_layers * num_directions, batch, hidden_size) to
+
+        # enc_output: the output of the last LSTM encoder layer. [batch_size, seq_len, encoder_size].
+        # state_h : the raw hidden state of the decoder's LSTM, as [num_layers * 1, batch_size, decoder_size].
+        # get context, attention_weights  # [batch_size, encoder_size], [batch_size, seq_len, 1]
+        sentence1_attended_output, _ = self.attention(enc_output=sentence1_output, state_h=sentence1_hidden, mask=None)
+        #print(sentence1_attended_output.size())
+        sentence2_attended_output, _ = self.attention(enc_output=sentence2_output, state_h=sentence2_hidden, mask=None)
+        concat = torch.cat([sentence1_attended_output, sentence2_attended_output], dim=1)  # [bs, 2*hidden_size]
+
+        output = self.mixer(self.relu(concat))  # [bs]
 
         return output
 
