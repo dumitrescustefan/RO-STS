@@ -1,6 +1,4 @@
-corpus_dev/Stsbenchmark.tar.gz
-corpus_dev/stsbenchmark
-
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

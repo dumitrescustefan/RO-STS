@@ -57,11 +57,10 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
 
     def training_step(self, batch, batch_idx):
         s1, s2, sim = batch
-        outputs = self(s1, s2, sim)
         
-        loss, cosines = outputs
+        loss, predicted_sims = self(s1, s2, sim)
 
-        self.train_y_hat.extend(cosines.detach().cpu().view(-1).numpy())
+        self.train_y_hat.extend(predicted_sims.detach().cpu().view(-1).numpy())
         self.train_y.extend(sim.detach().cpu().view(-1).numpy())
         self.train_loss.append(loss.detach().cpu().numpy())
 
@@ -72,7 +71,6 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
         spearman_score = spearmanr(self.train_y, self.train_y_hat)[0]
         mean_train_loss = sum(self.train_loss)/len(self.train_loss)
 
-        # wandb logging
         self.log("train/avg_loss", mean_train_loss, prog_bar=True)
         self.log("train/pearson", pearson_score, prog_bar=False)
         self.log("train/spearman", spearman_score, prog_bar=False)
@@ -83,15 +81,12 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
 
     def validation_step(self, batch, batch_idx):
         s1, s2, sim = batch
-        outputs = self(s1, s2, sim)
         
-        loss, cosines = outputs
-        
-        # log results 
-        self.valid_y_hat.extend(cosines.detach().cpu().view(-1).numpy())
+        loss, predicted_sims = self(s1, s2, sim)
+
+        self.valid_y_hat.extend(predicted_sims.detach().cpu().view(-1).numpy())
         self.valid_y.extend(sim.detach().cpu().view(-1).numpy())
         self.valid_loss.append(loss.detach().cpu().numpy())
-        #self.log("valid_loss", loss)
 
         return {"loss": loss}
 
@@ -101,15 +96,9 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
         spearman_score = spearmanr(self.valid_y, self.valid_y_hat)[0]
         mean_val_loss = sum(self.valid_loss)/len(self.valid_loss)
         
-        # wandb logging
         self.log("valid/avg_loss", mean_val_loss, prog_bar=True)
         self.log("valid/pearson", pearson_score, prog_bar=True)
         self.log("valid/spearman", spearman_score, prog_bar=True)
-
-        #early stopping logging
-        #self.log_dict({"valid_loss": mean_val_loss,
-        #               "valid_pearson": pearson_score,
-        #               "valid_spearman": spearman_score})
 
         self.valid_y_hat = []
         self.valid_y = []
@@ -118,17 +107,13 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
 
     def test_step(self, batch, batch_idx):
         s1, s2, sim = batch
-        outputs = self(s1, s2, sim)
+        
+        loss, predicted_sims = self(s1, s2, sim)
 
-        loss, cosines = outputs
-
-        # log results
-        self.test_y_hat.extend(cosines.detach().cpu().view(-1).numpy())
+        self.test_y_hat.extend(predicted_sims.detach().cpu().view(-1).numpy())
         self.test_y.extend(sim.detach().cpu().view(-1).numpy())
         self.test_loss.append(loss.detach().cpu().numpy())
 
-        # wandb logging
-        #self.log('/loss', loss)
         return {"loss": loss}
 
 
@@ -137,7 +122,6 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
         spearman_score = spearmanr(self.test_y, self.test_y_hat)[0]
         mean_test_loss = sum(self.test_loss)/len(self.test_loss)
 
-        # wandb logging
         self.log("test/avg_loss", mean_test_loss, prog_bar=True)
         self.log("test/pearson", pearson_score, prog_bar=True)
         self.log("test/spearman", spearman_score, prog_bar=True)
@@ -168,8 +152,8 @@ class MyDataset(Dataset):
             sentence1 = parts[5]
             sentence2 = parts[6]
             instance = {
-                "sentence1": sentence1,#tokenizer.encode(sentence1.strip(), add_special_tokens=True),
-                "sentence2": sentence2,#tokenizer.encode(sentence2.strip(), add_special_tokens=True),
+                "sentence1": sentence1,
+                "sentence2": sentence2,
                 "sim": float(sim)/5.
             }
             self.instances.append(instance)
@@ -177,7 +161,7 @@ class MyDataset(Dataset):
     def __len__(self):
         return len(self.instances)
 
-    def __getitem__(self, i) -> torch.Tensor:
+    def __getitem__(self, i):
         return self.instances[i] #torch.tensor([0], dtype=torch.long)
 
 
@@ -254,13 +238,6 @@ if __name__ == "__main__":
         
         model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length)
         
-        checkpoint_callback = ModelCheckpoint(
-            monitor='valid/pearson',
-            mode='min',
-            dirpath='transformer_model',
-            filename='model'
-        )
-
         early_stop = EarlyStopping(
             monitor='valid/pearson',
             patience=5,
