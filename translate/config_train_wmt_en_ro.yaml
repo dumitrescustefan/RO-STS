@@ -1,38 +1,37 @@
 save_data: data/
-src_vocab: data/vocab-en.txt
-tgt_vocab: data/vocab-ro.txt
 # Prevent overwriting existing files in the folder
 overwrite: False
 
 # Corpus opts:
 data:
     corpus_1:
-        path_src: data/train-en.txt
-        path_tgt: data/train-ro.txt
-        transforms: [sentencepiece]
+        path_src: data/wmt/train-en.txt
+        path_tgt: data/wmt/train-ro.txt
+        transforms: [sentencepiece, filtertoolong]
     valid:
-        path_src: data/valid-en.txt
-        path_tgt: data/valid-ro.txt
+        path_src: data/wmt/valid-en.txt
+        path_tgt: data/wmt/valid-ro.txt
         transforms: [sentencepiece]
 
-src_subword_model: data/sentpiece_en_32k.model
-tgt_subword_model: data/sentpiece_ro_32k.model
-
+src_subword_model: tokenizers/sentpiece_wmt_en_32k.model
+tgt_subword_model: tokenizers/sentpiece_wmt_ro_32k.model
+subword_nbest: 1
+subword_alpha: 0.0
 src_seq_length: 256
-src_seq_length: 256
+tgt_seq_length: 256
 
-src_vocab: data/vocab-en.txt
-tgt_vocab: data/vocab-ro.txt
+src_vocab: data/wmt/vocab-en.txt
+tgt_vocab: data/wmt/vocab-ro.txt
 src_vocab_size: 32000
 tgt_vocab_size: 32000
 
+train_from: models/model_wmt_en_ro_step_65000.pt
 save_model: models/model_wmt_en_ro
-train_from: models/model_wmt_en_ro_step_70000.pt
 save_checkpoint_steps: 5000
 valid_steps: 5000
-report_every: 100
+report_every: 10
 seed: 42
-train_steps: 200000
+train_steps: 250000
 tensorboard: True
 tensorboard_log_dir: tensorboard
 
