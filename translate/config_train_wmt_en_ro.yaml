@@ -30,6 +30,7 @@ save_model: models/model_wmt_en_ro
 save_checkpoint_steps: 5000
 valid_steps: 5000
 report_every: 10
+early_stopping: 3
 seed: 42
 train_steps: 250000
 tensorboard: True
