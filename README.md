@@ -22,8 +22,8 @@ The dataset is offered in two flavours:
 The train/dev/test splits are identical to the original English STS corpus splits.
 
 Direct download link: 
-* As a single zip file containing everything: [RO-STS.text-similarity.zip](dataset/RO-STS.text-similarity.zip)
-* Separate files: [RO-STS.train.tsv](dataset/text-similarity/RO-STS.train.tsv), [RO-STS.dev.tsv](dataset/text-similarity/RO-STS.dev.tsv), [RO-STS.test.tsv](dataset/text-similarity/RO-STS.test.tsv)  
+* As a single zip file containing everything: [RO-STS.text-similarity.zip](https://github.com/dumitrescustefan/RO-STS/blob/master/dataset/RO-STS.text-similarity.zip)
+* Separate files: [RO-STS.train.tsv](https://raw.githubusercontent.com/dumitrescustefan/RO-STS/master/dataset/text-similarity/RO-STS.train.tsv), [RO-STS.dev.tsv](https://raw.githubusercontent.com/dumitrescustefan/RO-STS/master/dataset/text-similarity/RO-STS.dev.tsv), [RO-STS.test.tsv](https://raw.githubusercontent.com/dumitrescustefan/RO-STS/master/dataset/text-similarity/RO-STS.test.tsv)  
 
 More information in the [dataset folder](dataset).
 
@@ -31,7 +31,7 @@ More information in the [dataset folder](dataset).
 
 The parallel corpus is a direct result of the translation process. It can be used as-is in any other downstream NLP task. It is split in 3 train/dev/test pair of ``ro`` & ``en`` files, totaling 6 files. It is formatted in the standard one-sentence per line.
 
-Direct download link, as a single zip file containing all the ``ro-en`` files: [RO-STS.ro-en.zip](dataset/RO-STS.ro-en.zip)
+Direct download link, as a single zip file containing all the ``ro-en`` files: [RO-STS.ro-en.zip](https://github.com/dumitrescustefan/RO-STS/blob/master/dataset/RO-STS.ro-en.zip)
 
 For more information and the unzipped files go to the [dataset folder](dataset).
 
