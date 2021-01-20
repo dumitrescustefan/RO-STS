@@ -1,4 +1,7 @@
 .idea
+baseline-models/rnn_files
+baseline-models/lightning_logs
+baseline-models/result*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

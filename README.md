@@ -54,10 +54,10 @@ The dataset was created in three steps:
 This process has ensured the high-quality translation of this dataset.
 
 Here are the annotators/contributors, alphabetically listed:
-* Adriana STAN
+* [Adriana STAN](http://www.adrianastan.com/)
 * [Andrei PRUTEANU](https://scholar.google.com/citations?user=L7qrNjIAAAAJ&hl=en&oi=ao)
 * [Andrei-Marius AVRAM](https://www.linkedin.com/in/andrei-marius-avram-80698a169/)
-* Beáta LŐRINCZ
+* [Beáta LŐRINCZ](https://sites.google.com/view/beatalorincz/about)
 * Madalina CHITEZ 
 * Mihai ILIE
 * [Petru REBEJA](https://www.linkedin.com/in/petrurebeja/)
