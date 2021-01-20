@@ -1,6 +1,6 @@
 ![Python](https://img.shields.io/badge/Python-3-brightgreen) 
 
-### RO-STS: Romanian Semantic Text Similarity Dataset Baseline Models
+## RO-STS: Romanian Semantic Textual Similarity Dataset - Baseline Models
 
 We provide the following models to provide an initial baseline score on this Text Similarity task. All results obtained here are reproducible by running each evaluation as detailed below.
 

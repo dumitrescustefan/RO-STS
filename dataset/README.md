@@ -1,10 +1,10 @@
 ![License](https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg)
 
-### RO-STS: Romanian Semantic Text Similarity Dataset 
+## RO-STS: Romanian Semantic Textual Similarity Dataset 
 
 This folder contains the two types of files released:
 
-#### 1. Text similarity
+### 1. Textual similarity
 
 In the ``text-similarity`` folder there are 3 *tsv* files:
 
@@ -30,7 +30,7 @@ For example:
 2.2	Un bărbat cântă la chitară.	O doamnă cântă la chitară.
 ```
 
-#### 2. Parallel corpus (RO-EN)
+### 2. Parallel corpus (RO-EN)
 
 The parallel corpus is found in the ``ro-en`` folder, and contains 6 files:
 
