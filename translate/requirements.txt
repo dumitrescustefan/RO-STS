@@ -1,4 +1,0 @@
-nltk
-rouge
-OpenNMT-py
-datasets
