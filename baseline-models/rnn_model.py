@@ -46,7 +46,7 @@ class RNNModel(pl.LightningModule):
             batch_first=True,
             dropout=0.1,
             bidirectional=True)
-        self.attention = Attention(encoder_size=2*self.hidden_size, decoder_size=self.hidden_size, type="additive")
+        self.attention = Attention(encoder_size=2*self.hidden_size, decoder_size=self.hidden_size, type="general")
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         self.loss_fct = MSELoss()
 
@@ -176,7 +176,7 @@ class RNNModel(pl.LightningModule):
         self.test_loss = []
 
     def configure_optimizers(self):
-        return torch.optim.Adam([p for p in self.parameters() if p.requires_grad], lr=self.lr, eps=1e-08)
+        return torch.optim.AdamW([p for p in self.parameters() if p.requires_grad], lr=self.lr, eps=1e-08)
 
 
 
@@ -316,9 +316,9 @@ def get_dataloaders(train_file, dev_file, test_file, tokenizer, batch_size):
         sims = torch.tensor(sims, dtype=torch.float)
         return sims, sentence1_batch, sentence1_lengths, sentence2_batch, sentence2_lengths
 
-    train_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.train.tsv")
-    val_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
-    test_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
+    train_dataset = MyDataset(tokenizer=tokenizer, file_path=train_file)
+    val_dataset = MyDataset(tokenizer=tokenizer, file_path=dev_file)
+    test_dataset = MyDataset(tokenizer=tokenizer, file_path=test_file)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4, shuffle=True,
                                   collate_fn=my_collate,
@@ -562,10 +562,10 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--gpus', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--accumulate_grad_batches', type=int, default=1)
     parser.add_argument('--vocab_size', type=int, default=10000)
-    parser.add_argument('--lr', type=float, default=1e-04)
+    parser.add_argument('--lr', type=float, default=1e-05)
     parser.add_argument('--experiment_iterations', type=int, default=1)
     args = parser.parse_args()
     
