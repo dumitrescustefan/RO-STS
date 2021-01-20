@@ -46,7 +46,7 @@ class RNNModel(pl.LightningModule):
             batch_first=True,
             dropout=0.1,
             bidirectional=True)
-        self.attention = Attention(encoder_size=2*self.hidden_size, decoder_size=self.hidden_size, type="general")
+        self.attention = Attention(encoder_size=2*self.hidden_size, decoder_size=self.hidden_size, type="additive")
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         self.loss_fct = MSELoss()
 

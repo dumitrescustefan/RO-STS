@@ -131,7 +131,7 @@ class TransformerModel (pl.LightningModule):
         self.test_loss = []
 
     def configure_optimizers(self):
-        return torch.optim.Adam([p for p in self.parameters() if p.requires_grad], lr=self.lr, eps=1e-08)
+        return torch.optim.AdamW([p for p in self.parameters() if p.requires_grad], lr=self.lr, eps=1e-08)
 
 
 class MyDataset(Dataset):
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
     test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=True, collate_fn=my_collate, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
 
