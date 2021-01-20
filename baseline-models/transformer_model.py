@@ -16,7 +16,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 class TransformerModel (pl.LightningModule):#xlm-roberta-base
-    def __init__(self, model_name="bert-base-cased", lr=2e-05, model_max_length=512): #model_name="dumitrescustefan/bert-base-romanian-cased-v1")
+    def __init__(self, model_name="dumitrescustefan/bert-base-romanian-cased-v1", lr=2e-05, model_max_length=512): #model_name="dumitrescustefan/bert-base-romanian-cased-v1")
         super().__init__()
         print("Loading AutoModel [{}]...".format(model_name))
         self.model_name = model_name
@@ -148,9 +148,12 @@ class MyDataset(Dataset):
             if line.strip()=="":
                 break
             parts = line.strip().split("\t")
-            sim = parts[4]
-            sentence1 = parts[5]
-            sentence2 = parts[6]
+            if len(parts) != 3:
+                print(".")
+                continue
+            sim = parts[0]
+            sentence1 = parts[1]
+            sentence2 = parts[2]
             instance = {
                 "sentence1": sentence1,
                 "sentence2": sentence2,
@@ -200,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--accumulate_grad_batches', type=int, default=16)
-    parser.add_argument('--model_name', type=str, default="bert-base-cased")
+    parser.add_argument('--model_name', type=str, default="dumitrescustefan/bert-base-romanian-cased-v1")
     parser.add_argument('--lr', type=float, default=2e-05)
     parser.add_argument('--model_max_length', type=int, default=512)
     parser.add_argument('--experiment_iterations', type=int, default=1)
@@ -212,9 +215,9 @@ if __name__ == "__main__":
     model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length) # need to load for tokenizer
     
     print("Loading data...")
-    train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-train.csv")
-    val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-dev.csv")
-    test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../ro-sts/sts-test.csv")
+    train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.train.tsv")
+    val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
+    test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
 
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=2, shuffle=True, collate_fn=my_collate, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=2, shuffle=False, collate_fn=my_collate, pin_memory=True)

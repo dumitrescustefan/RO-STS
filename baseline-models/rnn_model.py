@@ -202,8 +202,10 @@ def get_tokenizer(train_dev_test_files, vocab_size):
                     if line.strip() == "":
                         break
                     parts = line.strip().split("\t")
-                    sentence1 = parts[5]
-                    sentence2 = parts[6]
+                    if len(parts)!=3:
+                        continue
+                    sentence1 = parts[1]
+                    sentence2 = parts[2]
                     f.write(sentence1 + "\n")
                     f.write(sentence2 + "\n")
 
@@ -257,9 +259,11 @@ class MyDataset(Dataset):
             if line.strip()=="":
                 break
             parts = line.strip().split("\t")
-            sim = parts[4]
-            sentence1 = parts[5]
-            sentence2 = parts[6]
+            if len(parts)!=3:
+                continue
+            sim = parts[0]
+            sentence1 = parts[1]
+            sentence2 = parts[2]
             instance = {
                 "sentence1": sentence1,
                 "sentence2": sentence2,
@@ -312,9 +316,9 @@ def get_dataloaders(train_file, dev_file, test_file, tokenizer, batch_size):
         sims = torch.tensor(sims, dtype=torch.float)
         return sims, sentence1_batch, sentence1_lengths, sentence2_batch, sentence2_lengths
 
-    train_dataset = MyDataset(tokenizer=tokenizer, file_path="../ro-sts/sts-train.csv")
-    val_dataset = MyDataset(tokenizer=tokenizer, file_path="../ro-sts/sts-dev.csv")
-    test_dataset = MyDataset(tokenizer=tokenizer, file_path="../ro-sts/sts-test.csv")
+    train_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.train.tsv")
+    val_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
+    test_dataset = MyDataset(tokenizer=tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=4, shuffle=True,
                                   collate_fn=my_collate,
@@ -528,9 +532,9 @@ class Attention(nn.Module):
 def test_tokenizer():
     print("Testing tokenizer:")
 
-    train_file = "../ro-sts/sts-train.csv"
-    dev_file = "../ro-sts/sts-dev.csv"
-    test_file = "../ro-sts/sts-test.csv"
+    train_file = "../dataset/text-similarity/RO-STS.train.tsv"
+    dev_file = "../dataset/text-similarity/RO-STS.dev.tsv"
+    test_file = "../dataset/text-similarity/RO-STS.test.tsv"
     vocab_size = 10000
     train_dev_test_files = [train_file, dev_file, test_file]
 
@@ -570,9 +574,9 @@ if __name__ == "__main__":
     
     print("Loading data...")
     
-    train_file = "../ro-sts/sts-train.csv"
-    dev_file = "../ro-sts/sts-dev.csv"
-    test_file = "../ro-sts/sts-test.csv"
+    train_file = "../dataset/text-similarity/RO-STS.train.tsv"
+    dev_file = "../dataset/text-similarity/RO-STS.dev.tsv"
+    test_file = "../dataset/text-similarity/RO-STS.test.tsv"
     
     tokenizer = get_tokenizer([train_file, dev_file, test_file], args.vocab_size)     # load or create tokenizer
 
