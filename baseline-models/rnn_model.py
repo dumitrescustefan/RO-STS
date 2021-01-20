@@ -615,13 +615,15 @@ if __name__ == "__main__":
         )
         trainer.fit(model, train_dataloader, val_dataloader)
 
+        resultd = trainer.test(model, val_dataloader)
         result = trainer.test(model, test_dataloader)
-        with open("results_{}_of_{}.json".format(itt+1, args.experiment_iterations),"w") as f:
+
+        with open("results_{}_of_{}.json".format(itt + 1, args.experiment_iterations), "w") as f:
             json.dump(result[0], f, indent=4, sort_keys=True)
-        
-        v_p.append(result[0]['valid/pearson'])
-        v_s.append(result[0]['valid/spearman'])
-        v_l.append(result[0]['valid/avg_loss'])
+
+        v_p.append(resultd[0]['test/pearson'])
+        v_s.append(resultd[0]['test/spearman'])
+        v_l.append(resultd[0]['test/avg_loss'])
         t_p.append(result[0]['test/pearson'])
         t_s.append(result[0]['test/spearman'])
         t_l.append(result[0]['test/avg_loss'])

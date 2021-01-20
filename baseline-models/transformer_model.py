@@ -15,8 +15,8 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-class TransformerModel (pl.LightningModule):#xlm-roberta-base
-    def __init__(self, model_name="dumitrescustefan/bert-base-romanian-cased-v1", lr=2e-05, model_max_length=512): #model_name="dumitrescustefan/bert-base-romanian-cased-v1")
+class TransformerModel (pl.LightningModule):
+    def __init__(self, model_name="dumitrescustefan/bert-base-romanian-cased-v1", lr=2e-05, model_max_length=512):
         super().__init__()
         print("Loading AutoModel [{}]...".format(model_name))
         self.model_name = model_name
@@ -40,7 +40,7 @@ class TransformerModel (pl.LightningModule):#xlm-roberta-base
         self.test_y_hat = []
         self.test_y = []
         self.test_loss = []
-  
+
         self.cnt = 0
         
     def forward(self, s1, s2, sim):
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--accumulate_grad_batches', type=int, default=16)
-    parser.add_argument('--model_name', type=str, default="dumitrescustefan/bert-base-romanian-cased-v1")
+    parser.add_argument('--model_name', type=str, default="dumitrescustefan/bert-base-romanian-cased-v1") #xlm-roberta-base
     parser.add_argument('--lr', type=float, default=2e-05)
     parser.add_argument('--model_max_length', type=int, default=512)
     parser.add_argument('--experiment_iterations', type=int, default=1)
@@ -219,9 +219,9 @@ if __name__ == "__main__":
     val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
     test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
 
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=2, shuffle=True, collate_fn=my_collate, pin_memory=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=2, shuffle=False, collate_fn=my_collate, pin_memory=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=2, shuffle=False, collate_fn=my_collate, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
 
 
     print("Train dataset has {} instances.".format(len(train_dataset)))
@@ -260,13 +260,15 @@ if __name__ == "__main__":
         )
         trainer.fit(model, train_dataloader, val_dataloader)
 
+        resultd = trainer.test(model, val_dataloader)
         result = trainer.test(model, test_dataloader)
+
         with open("results_{}_of_{}.json".format(itt+1, args.experiment_iterations),"w") as f:
             json.dump(result[0], f, indent=4, sort_keys=True)
-        
-        v_p.append(result[0]['valid/pearson'])
-        v_s.append(result[0]['valid/spearman'])
-        v_l.append(result[0]['valid/avg_loss'])
+
+        v_p.append(resultd[0]['test/pearson'])
+        v_s.append(resultd[0]['test/spearman'])
+        v_l.append(resultd[0]['test/avg_loss'])
         t_p.append(result[0]['test/pearson'])
         t_s.append(result[0]['test/spearman'])
         t_l.append(result[0]['test/avg_loss'])
@@ -281,11 +283,8 @@ if __name__ == "__main__":
     result["test_pearson"] = sum(t_p)/args.experiment_iterations
     result["test_spearman"] = sum(t_s)/args.experiment_iterations
     result["test_loss"] = sum(t_l)/args.experiment_iterations
-    
-    with open("results.json","w") as f:
-        json.dump(result, f, indent=4, sort_keys=True)
-       
-    with open("results_of_{}.json".format(args.model_name),"w") as f:
+
+    with open("results_of_{}.json".format(args.model_name.replace("/","_")),"w") as f:
         json.dump(result, f, indent=4, sort_keys=True)
         
     print(result)
