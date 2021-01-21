@@ -6,14 +6,15 @@ We provide the following models to provide an initial baseline score on this Tex
 
 Here are the results after running each model 10 times and averaging scores. 
 
-|                   	| Transformer 	| RNN 	|
-|-------------------	|:-----------:	|:---:	|
-| Dev-set Pearson   	|      0      	|  0  	|
-| Dev-set Spearman  	|      0      	|  0  	|
-| Test-set Pearson  	|      0      	|  0  	|
-| Test-set Spearman 	|      0      	|  0  	|
+|                   	| Transformer 	| RNN 	  |
+|-------------------	|:-----------:	|:---:	  |
+| Dev-set Pearson   	|      84.42   	|  73.54 	|
+| Dev-set Spearman  	|      84.19   	|  73.43	|
+| Test-set Pearson  	|      **79.27**   	|  68.53 	|
+| Test-set Spearman 	|      78.41   	|  67.55 	|
 
 If you would like to run these models yourself please do a ``pip install -r requirements.txt`` from this folder. Do this in a clean virtual env as the versions of pytorch, transformers, etc., are frozen to provide as much future-proofing for these scripts as possible.
+
 #### 1. Transformer baseline
 
 The transformer model uses the Romanian BERT model to encode each sentence separately, then does a mean-pooling of the output token vectors. The two resulting sentence representations are compared using the cosine sim score. The 0-5 interval was reduced to 0-1 (to be compatible with the cosine), and the MSE loss was used. This is the standard recipe for STS/NLI tasks, and we provide it here as a baseline.
