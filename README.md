@@ -59,7 +59,7 @@ Here are the annotators/contributors, alphabetically listed:
 * [Andrei-Marius AVRAM](https://www.linkedin.com/in/andrei-marius-avram-80698a169/)
 * [Beáta LŐRINCZ](https://sites.google.com/view/beatalorincz/about)
 * Madalina CHITEZ 
-* Mihai ILIE
+* [Mihai ILIE](https://www.linkedin.com/in/mihai-ilie-tensor/)
 * [Petru REBEJA](https://www.linkedin.com/in/petrurebeja/)
 * [Razvan PASCANU](https://sites.google.com/corp/view/razp)
 * [Stefan Daniel DUMITRESCU](https://scholar.google.com/citations?user=UR_c_N4AAAAJ&hl=en)
