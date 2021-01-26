@@ -3,7 +3,7 @@
 # RO-STS: Romanian Semantic Textual Similarity Dataset 
 
 This dataset is the Romanian version of the [STS](https://ixa2.si.ehu.es/stswiki/index.php/STSbenchmark) dataset.
-It is a **high-quality** translation of the aforementioned dataset, containing 7804 pairs of sentences with their similarity score. The dataset respects the same split: 5215 train, 1316 dev and 1273 test sentence pairs.
+It is a **high-quality** translation of the aforementioned dataset, containing 8628 pairs of sentences with their similarity score. The dataset respects the same split: 5749 train, 1500 dev and 1379 test sentence pairs.
 
 ## Dataset format
 
