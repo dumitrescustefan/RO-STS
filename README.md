@@ -37,11 +37,17 @@ For more information and the unzipped files go to the [dataset folder](dataset).
 
 ## Baseline evaluation
 
-We provide 2 baselines for this dataset, a transformer based model and a recurrent neural network model. Both models were trained on the train set until the Pearson score did not improve on the dev set, and results are reported on the test set.
+We provide 2 baselines for this dataset, a transformer-based model and a recurrent neural network model. Both models were trained on the train set until the Pearson score did not improve on the dev set, and results are reported on both dev and test sets.
 
-Table with results coming soon.
+| Model                       	| # of parameters  	| Dev-set Pearson 	| Dev-set Spearman 	| Test-set Pearson 	| Test-set Spearman 	|
+|-----------------------------	|------------------	|-----------------	|------------------	|------------------	|-------------------	|
+| RNN                         	|       16.7M      	|      0.7342     	|      0.7349      	|      0.6744      	|       0.6662      	|
+| Romanian BERT v1 (uncased)  	|       124M       	|      0.8459     	|      0.8426      	|    **0.8159**    	|     **0.8086**    	|
+| Romanian BERT v1 (cased)    	|       124M       	|      0.8426     	|      0.8409      	|      0.7911      	|       0.7826      	|
+| Multilingual BERT (uncased) 	|       167M       	|      0.8237     	|      0.8235      	|      0.7690      	|       0.7650      	|
+| Multilingual BERT (cased)   	|       167M       	|      0.8071     	|      0.8077      	|      0.7664      	|       0.7641      	|
 
-For more details on how to reproduce these scores please check out the [detailed evaluation page](baseline/README.md).
+For more details on how to reproduce these scores please check out the [detailed evaluation page](baseline-models/README.md).
 
 ## Creation process
 
@@ -58,10 +64,11 @@ Here are the annotators/contributors, alphabetically listed:
 * [Andrei PRUTEANU](https://scholar.google.com/citations?user=L7qrNjIAAAAJ&hl=en&oi=ao)
 * [Andrei-Marius AVRAM](https://www.linkedin.com/in/andrei-marius-avram-80698a169/)
 * [Beáta LŐRINCZ](https://sites.google.com/view/beatalorincz/about)
-* Madalina CHITEZ 
+* [Madalina CHITEZ](https://www.linkedin.com/in/dr-madalina-chitez-23846765/) 
 * [Mihai ILIE](https://www.linkedin.com/in/mihai-ilie-tensor/)
 * [Petru REBEJA](https://www.linkedin.com/in/petrurebeja/)
 * [Razvan PASCANU](https://sites.google.com/corp/view/razp)
+* [Roxana Rogobete](https://www.linkedin.com/in/roxana-rogobete-2936931b1/)
 * [Stefan Daniel DUMITRESCU](https://scholar.google.com/citations?user=UR_c_N4AAAAJ&hl=en)
 * [Viorica PATRAUCEAN]( https://scholar.google.co.uk/citations?user=hWzXZUMAAAAJ&hl=en)
 
