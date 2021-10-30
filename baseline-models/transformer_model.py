@@ -44,8 +44,8 @@ class TransformerModel (pl.LightningModule):
         self.cnt = 0
         
     def forward(self, s1, s2, sim):
-        o1 = self.model(input_ids=s1["input_ids"], attention_mask=s1["attention_mask"], return_dict=True)
-        o2 = self.model(input_ids=s2["input_ids"], attention_mask=s2["attention_mask"], return_dict=True)
+        o1 = self.model(input_ids=s1["input_ids"].to(self.device), attention_mask=s1["attention_mask"].to(self.device), return_dict=True)
+        o2 = self.model(input_ids=s2["input_ids"].to(self.device), attention_mask=s2["attention_mask"].to(self.device), return_dict=True)
         pooled_sentence1 = o1.last_hidden_state # [batch_size, seq_len, hidden_size]
         pooled_sentence1 = torch.mean(pooled_sentence1, dim=1) # [batch_size, hidden_size]
         pooled_sentence2 = o2.last_hidden_state  # [batch_size, seq_len, hidden_size]
@@ -274,6 +274,22 @@ if __name__ == "__main__":
         t_l.append(result[0]['test/avg_loss'])
         
         itt += 1
+        model.eval()
+        with torch.no_grad():
+            with open("bert-mbert.csv","w", encoding="utf8") as f:
+                for instance in test_dataset:
+                    #print(instance)
+                    sentence1_batch = model.tokenizer([instance["sentence1"]], padding=True, max_length=model.model_max_length,
+                                                      truncation=True, return_tensors="pt")
+                    sentence2_batch = model.tokenizer([instance["sentence2"]], padding=True, max_length=model.model_max_length,
+                                                      truncation=True, return_tensors="pt")
+                    sims = torch.tensor([instance["sim"]], dtype=torch.float)
+                    _, cos = model.forward(sentence1_batch.to("cuda"), sentence2_batch.to("cuda"), sims.to("cuda"))
+                    print(f"pred: {cos} gold {instance['sim']}")
+                    #print(cos)
+                    f.write(f"{instance['sentence1']}\t{instance['sentence2']}\t{instance['sim']}\t{cos.detach().squeeze().cpu().numpy()}\n")
+
+
 
     print("Done, writing results...")
     result = {}
