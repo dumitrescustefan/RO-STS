@@ -243,11 +243,10 @@ if __name__ == "__main__":
         
         early_stop = EarlyStopping(
             monitor='valid/pearson',
-            patience=5,
+            patience=4,
             verbose=True,
             mode='max'
         )
-        
         
         trainer = pl.Trainer(
             gpus=args.gpus,
@@ -274,21 +273,6 @@ if __name__ == "__main__":
         t_l.append(result[0]['test/avg_loss'])
         
         itt += 1
-        model.eval()
-        with torch.no_grad():
-            with open("bert-mbert.csv","w", encoding="utf8") as f:
-                for instance in test_dataset:
-                    #print(instance)
-                    sentence1_batch = model.tokenizer([instance["sentence1"]], padding=True, max_length=model.model_max_length,
-                                                      truncation=True, return_tensors="pt")
-                    sentence2_batch = model.tokenizer([instance["sentence2"]], padding=True, max_length=model.model_max_length,
-                                                      truncation=True, return_tensors="pt")
-                    sims = torch.tensor([instance["sim"]], dtype=torch.float)
-                    _, cos = model.forward(sentence1_batch.to("cuda"), sentence2_batch.to("cuda"), sims.to("cuda"))
-                    print(f"pred: {cos} gold {instance['sim']}")
-                    #print(cos)
-                    f.write(f"{instance['sentence1']}\t{instance['sentence2']}\t{instance['sim']}\t{cos.detach().squeeze().cpu().numpy()}\n")
-
 
 
     print("Done, writing results...")
@@ -300,7 +284,7 @@ if __name__ == "__main__":
     result["test_spearman"] = sum(t_s)/args.experiment_iterations
     result["test_loss"] = sum(t_l)/args.experiment_iterations
 
-    with open("results_of_{}.json".format(args.model_name.replace("/","_")),"w") as f:
+    with open("results_of_{}.json".format(args.model_name.replace("/", "_")), "w") as f:
         json.dump(result, f, indent=4, sort_keys=True)
         
     print(result)
