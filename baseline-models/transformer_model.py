@@ -286,5 +286,6 @@ if __name__ == "__main__":
 
     with open("results_of_{}.json".format(args.model_name.replace("/", "_")), "w") as f:
         json.dump(result, f, indent=4, sort_keys=True)
-        
-    print(result)
+    
+    from pprint import pprint
+    pprint(result)
