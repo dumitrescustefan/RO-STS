@@ -41,7 +41,31 @@ class TransformerModel (pl.LightningModule):
         self.test_y = []
         self.test_loss = []
 
-        self.cnt = 0
+        # add pad token
+        self.validate_pad_token()
+    
+    def validate_pad_token(self):
+        if self.tokenizer.pad_token is not None:
+            return
+        if self.tokenizer.sep_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the SEP token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.sep_token
+            return
+        if self.tokenizer.eos_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the EOS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            return
+        if self.tokenizer.bos_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the BOS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.bos_token
+            return
+        if self.tokenizer.cls_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the CLS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.cls_token
+            return
+        raise Exception("Could not detect SEP/EOS/BOS/CLS tokens, and thus could not assign a PAD token which is required.")
+        
+         
         
     def forward(self, s1, s2, sim):
         o1 = self.model(input_ids=s1["input_ids"].to(self.device), attention_mask=s1["attention_mask"].to(self.device), return_dict=True)
@@ -214,7 +238,7 @@ if __name__ == "__main__":
     
     model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length) # need to load for tokenizer
     
-    print("Loading data...")
+    print("Loading data...") 
     train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.train.tsv")
     val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
     test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
@@ -255,7 +279,7 @@ if __name__ == "__main__":
             #limit_val_batches=2,
             accumulate_grad_batches=args.accumulate_grad_batches,
             gradient_clip_val=1.0,
-            checkpoint_callback=False
+            enable_checkpointing=False
         )
         trainer.fit(model, train_dataloader, val_dataloader)
 
