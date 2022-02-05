@@ -9,12 +9,17 @@ Here are the results after running each model 10 times and averaging scores.
 | Model                       	| # of parameters  	| Dev-set Pearson 	| Dev-set Spearman 	| Test-set Pearson 	| Test-set Spearman 	|
 |-----------------------------	|------------------	|-----------------	|------------------	|------------------	|-------------------	|
 | RNN                         	|       16.7M      	|      0.7342     	|      0.7349      	|      0.6744      	|       0.6662      	|
-| Romanian BERT v1 (uncased)  	|       124M       	|      0.8459     	|      0.8426      	|    **0.8159**    	|     **0.8086**    	|
-| Romanian BERT v1 (cased)    	|       124M       	|      0.8426     	|      0.8409      	|      0.7911      	|       0.7826      	|
+| Romanian BERT v1 (uncased)  	|       124M       	|      0.8453     	|      0.8417      	|    **0.8156**    	|     **0.8075**    	|
+| Romanian BERT v1 (cased)    	|       124M       	|      0.8477     	|      0.8447      	|      0.7985      	|       0.7897      	|
 | Multilingual BERT (uncased) 	|       167M       	|      0.8237     	|      0.8235      	|      0.7690      	|       0.7650      	|
 | Multilingual BERT (cased)   	|       167M       	|      0.8071     	|      0.8077      	|      0.7664      	|       0.7641      	|
+| Distill BERT (cased)          |        81M        |      0.7737       |      0.7726       |      0.7253       |       0.7167        |
+| Readerbench/RoGPT-base        |       124M        |      0.8210       |      0.8185       |      0.7848       |       0.7729        |
+| Readerbench/RoGPT-medium      |       354M        |      0.8400       |      0.8387       |      0.7954       |       0.7867        |
+| xlm-roberta-base              |       278M        |      0.8215       |      0.8233       |      0.7783       |       0.7756        |
 
-If you would like to run these models yourself please do a ``pip install -r requirements.txt`` from this folder. Do this in a clean virtual env as the versions of pytorch, transformers, etc., are frozen to provide as much future-proofing for these scripts as possible.
+
+If you would like to run these models yourself please do a ``pip install -r requirements.txt`` from this folder.
 
 #### 1. Transformer baseline
 
