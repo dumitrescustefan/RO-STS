@@ -5,8 +5,10 @@ from torch.utils.data import DataLoader
 from torch.nn import MSELoss
 import pytorch_lightning as pl
 from transformers import AutoTokenizer, AutoModel, AutoConfig, Trainer, TrainingArguments
+from transformers import MT5Model, MT5EncoderModel, MT5ForConditionalGeneration, T5Tokenizer
+from transformers import T5Config, MT5Config
 from pytorch_lightning.callbacks import EarlyStopping
-from scipy.stats.stats import pearsonr
+from scipy.stats import pearsonr
 from scipy.stats import spearmanr
 
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -16,14 +18,29 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 class TransformerModel (pl.LightningModule):
-    def __init__(self, model_name="dumitrescustefan/bert-base-romanian-cased-v1", lr=2e-05, model_max_length=512):
+    def __init__(self, model_name, lr=2e-05, model_max_length=512, type="mt5", frozen=True, encoder=True):
         super().__init__()
         print("Loading AutoModel [{}]...".format(model_name))
         self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.config = AutoConfig.from_pretrained(model_name, num_labels=1, output_hidden_states=True)
-        self.model = AutoModel.from_pretrained(model_name, config=self.config)
         self.dropout = nn.Dropout(0.2)
+        self.type = type
+        self.frozen = frozen
+
+        if type == "mt5":
+            self.tokenizer = T5Tokenizer.from_pretrained(model_name)
+            self.config = MT5Config.from_pretrained(model_name, num_labels=1, output_hidden_states=True)
+            if encoder == True:
+                self.model = MT5EncoderModel.from_pretrained(model_name, config=self.config)
+            else:
+                self.model = MT5ForConditionalGeneration.from_pretrained(model_name, config=self.config)
+
+        print(f"Using model: {str(self.model.name_or_path)}")
+
+        """if frozen:
+            print(f"Freezing model {str(self.model.base_model_prefix)} ...")
+            for param in self.model.parameters():
+                param.requires_grad = False
+        """
 
         self.loss_fct = MSELoss()
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
@@ -68,14 +85,17 @@ class TransformerModel (pl.LightningModule):
          
         
     def forward(self, s1, s2, sim):
-        o1 = self.model(input_ids=s1["input_ids"].to(self.device), attention_mask=s1["attention_mask"].to(self.device), return_dict=True)
-        o2 = self.model(input_ids=s2["input_ids"].to(self.device), attention_mask=s2["attention_mask"].to(self.device), return_dict=True)
-        pooled_sentence1 = o1.last_hidden_state # [batch_size, seq_len, hidden_size]
-        pooled_sentence1 = torch.mean(pooled_sentence1, dim=1) # [batch_size, hidden_size]
-        pooled_sentence2 = o2.last_hidden_state  # [batch_size, seq_len, hidden_size]
-        pooled_sentence2 = torch.mean(pooled_sentence2, dim=1) # [batch_size, hidden_size]
+        o1 = self.model(input_ids=s1["input_ids"].to(self.device),
+                        attention_mask=s1["attention_mask"].to(self.device), return_dict=True)
+        o2 = self.model(input_ids=s2["input_ids"].to(self.device),
+                        attention_mask=s2["attention_mask"].to(self.device), return_dict=True)
 
-        cosines = self.cos(pooled_sentence1, pooled_sentence2).squeeze() # [batch_size]
+        pooled_sentence1 = o1.last_hidden_state  # [batch_size, seq_len, hidden_size]
+        pooled_sentence1 = torch.mean(pooled_sentence1, dim=1)  # [batch_size, hidden_size]
+        pooled_sentence2 = o2.last_hidden_state  # [batch_size, seq_len, hidden_size]
+        pooled_sentence2 = torch.mean(pooled_sentence2, dim=1)  # [batch_size, hidden_size]
+
+        cosines = self.cos(pooled_sentence1, pooled_sentence2).squeeze()  # [batch_size]
         loss = self.loss_fct(cosines, sim)
         return loss, cosines
 
@@ -192,57 +212,94 @@ class MyDataset(Dataset):
         return self.instances[i] #torch.tensor([0], dtype=torch.long)
 
 
-def my_collate(batch):
-    # batch is a list of batch_size number of instances; each instance is a dict, as given by MyDataset.__getitem__()
-    # return is a sentence1_batch, sentence2_batch, sims
-    # the first two return values are dynamic batching for sentences 1 and 2, and [bs] is the sims for each of them
-    # sentence1_batch is a dict like:
-    """
-    'input_ids': tensor([[101, 8667, 146, 112, 182, 170, 1423, 5650, 102],
-                         [101, 1262, 1330, 5650, 102, 0, 0, 0, 0],
-                         [101, 1262, 1103, 1304, 1304, 1314, 1141, 102, 0]]),
-    'token_type_ids': tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0],
-                              [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                              [0, 0, 0, 0, 0, 0, 0, 0, 0]]),
-    'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1],
-    """
-    sentence1_batch = []
-    sentence2_batch = []
-    sims = []
-    for instance in batch:
-        #print(instance["sentence1"])
-        sentence1_batch.append(instance["sentence1"])
-        sentence2_batch.append(instance["sentence2"])
-        sims.append(instance["sim"])
+class MyCollator(object):
+    def __init__(self, tokenizer, max_seq_len):
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
 
-    sentence1_batch = model.tokenizer(sentence1_batch, padding=True, max_length = model.model_max_length, truncation=True, return_tensors="pt")
-    sentence2_batch = model.tokenizer(sentence2_batch, padding=True, max_length = model.model_max_length, truncation=True, return_tensors="pt")
-    sims = torch.tensor(sims, dtype=torch.float)
+        self.validate_pad_token()
 
-    return sentence1_batch, sentence2_batch, sims
+    def validate_pad_token(self):
+        if self.tokenizer.pad_token is not None:
+            return
+        if self.tokenizer.sep_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the SEP token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.sep_token
+            return
+        if self.tokenizer.eos_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the EOS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+            return
+        if self.tokenizer.bos_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the BOS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.bos_token
+            return
+        if self.tokenizer.cls_token is not None:
+            print(f"\tNo PAD token detected, automatically assigning the CLS token as PAD.")
+            self.tokenizer.pad_token = self.tokenizer.cls_token
+            return
+        raise Exception(
+            "Could not detect SEP/EOS/BOS/CLS tokens, and thus could not assign a PAD token which is required.")
+
+    def __call__(self, batch):
+        # batch is a list of batch_size number of instances; each instance is a dict, as given by MyDataset.__getitem__()
+        # return is a sentence1_batch, sentence2_batch, sims
+        # the first two return values are dynamic batching for sentences 1 and 2, and [bs] is the sims for each of them
+        # sentence1_batch is a dict like:
+        """
+        'input_ids': tensor([[101, 8667, 146, 112, 182, 170, 1423, 5650, 102],
+                             [101, 1262, 1330, 5650, 102, 0, 0, 0, 0],
+                             [101, 1262, 1103, 1304, 1304, 1314, 1141, 102, 0]]),
+        'token_type_ids': tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                  [0, 0, 0, 0, 0, 0, 0, 0, 0]]),
+        'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1],
+        """
+        global model
+
+        sentence1_batch = []
+        sentence2_batch = []
+        sims = []
+        for instance in batch:
+            #print(instance["sentence1"])
+            sentence1_batch.append(instance["sentence1"])
+            sentence2_batch.append(instance["sentence2"])
+            sims.append(instance["sim"])
+
+        sentence1_batch = self.tokenizer(sentence1_batch, padding=True, max_length=self.max_seq_len, truncation=True, return_tensors="pt")
+        sentence2_batch = self.tokenizer(sentence2_batch, padding=True, max_length=self.max_seq_len, truncation=True, return_tensors="pt")
+        sims = torch.tensor(sims, dtype=torch.float)
+
+        return sentence1_batch, sentence2_batch, sims
 
 if __name__ == "__main__":
+    #torch.set_num_threads(8)
+    print("Use --type t5 or mt5, use --frozen to not train the model itself")
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument('--gpus', type=int, default=0)
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--accumulate_grad_batches', type=int, default=16)
-    parser.add_argument('--model_name', type=str, default="dumitrescustefan/bert-base-romanian-cased-v1") #xlm-roberta-base
+    parser.add_argument('--model_name', type=str, default=r"c:\work\t5\mt5-base\checkpoint_4000000") #google/mt5-small
     parser.add_argument('--lr', type=float, default=2e-05)
     parser.add_argument('--model_max_length', type=int, default=512)
     parser.add_argument('--experiment_iterations', type=int, default=1)
+    parser.add_argument('--type', type=str, default="mt5")
+    parser.add_argument('--frozen', action='store_true')
+    parser.add_argument('--encoder', action='store_true')
+
     args = parser.parse_args()
-    
-    
+
     print("Batch size is {}, accumulate grad batches is {}, final batch_size is {}\n".format(args.batch_size, args.accumulate_grad_batches, args.batch_size * args.accumulate_grad_batches))
     
-    model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length) # need to load for tokenizer
+    model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length, type=args.type, frozen=args.frozen, encoder=args.encoder) # need to load for tokenizer
     
     print("Loading data...") 
     train_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.train.tsv")
     val_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.dev.tsv")
     test_dataset = MyDataset(tokenizer=model.tokenizer, file_path="../dataset/text-similarity/RO-STS.test.tsv")
 
+    my_collate = MyCollator(tokenizer=model.tokenizer, max_seq_len=512)
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, shuffle=True, collate_fn=my_collate, pin_memory=True)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, shuffle=False, collate_fn=my_collate, pin_memory=True)
@@ -263,11 +320,11 @@ if __name__ == "__main__":
     while itt<args.experiment_iterations:
         print("Running experiment {}/{}".format(itt+1, args.experiment_iterations))
         
-        model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length)
+        model = TransformerModel(model_name=args.model_name, lr=args.lr, model_max_length=args.model_max_length, type=args.type, frozen=args.frozen, encoder=args.encoder)
         
         early_stop = EarlyStopping(
             monitor='valid/pearson',
-            patience=4,
+            patience=5,
             verbose=True,
             mode='max'
         )
@@ -277,6 +334,7 @@ if __name__ == "__main__":
             callbacks=[early_stop],
             #limit_train_batches=5,
             #limit_val_batches=2,
+            max_epochs=-1,
             accumulate_grad_batches=args.accumulate_grad_batches,
             gradient_clip_val=1.0,
             enable_checkpointing=False
