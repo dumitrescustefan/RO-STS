@@ -78,5 +78,16 @@ This work, like it's [original](https://ixa2.si.ehu.es/stswiki/index.php/STSbenc
 
 ## Citation
 
-Coming soon.
+```
+Dumitrescu, S. D., Rebeja, P., Lorincz, B., Gaman, M., Avram, A., Ilie, M., Pruteanu, A., Stan, A., Rosia, L., Iacobescu, C., & others. (2021). Liro: Benchmark and leaderboard for romanian language tasks. Thirty-Fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 1).
+```
 
+
+```
+@inproceedings{dumitrescu2021liro,
+  title={Liro: Benchmark and leaderboard for romanian language tasks},
+  author={Dumitrescu, Stefan Daniel and Rebeja, Petru and Lorincz, Beata and Gaman, Mihaela and Avram, Andrei and Ilie, Mihai and Pruteanu, Andrei and Stan, Adriana and Rosia, Lorena and Iacobescu, Cristina and others},
+  booktitle={Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 1)},
+  year={2021}
+}
+```
